@@ -1,8 +1,14 @@
 Revision history for Perl extension Apache::EmbperlChain.
 
+0.03  Feb 2 1999
+- Set Embperl's "file" from $r->filename.
+- Set Embperl's "mtime" from Last-Modified header if available. This will enable Embperl
+  caching if both "file" and "mtime" are defined.
+- Buffer input and only call Embperl Execute at end of request if last in chain
+
 0.02  Oct 13 1998
-	added documentation and prepare for release on CPAN.
+- Added documentation and prepare for release on CPAN.
 
 0.01  July 1998
-	original version;
+Original version;
 

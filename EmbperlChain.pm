@@ -1,19 +1,24 @@
 package Apache::EmbperlChain;
 
 use Apache::OutputChain;
+use Apache::Util qw(parsedate);
 use HTML::Embperl ();
+
 use strict;
 use vars qw($VERSION @ISA);
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 @ISA = qw(Apache::OutputChain);
-my $last_in_chain;
+my ($r, $last_in_chain, $buffer, %param);
 
 sub handler {
-	my $r = shift;
-	my $tied = tied *STDOUT;
-	my $reftied = ref $tied;
-	$last_in_chain = ($reftied eq 'Apache::OutputChain');
+	$r = shift;
+	if ($last_in_chain = (ref tied *STDOUT eq 'Apache::OutputChain')) {
+		$buffer = '';
+		$r->push_handlers(PerlHandler => \&flush);
+	}
+	$param{inputfile} = $r->filename;
+	$param{req_rec} = $r;
 	Apache::OutputChain::handler($r, __PACKAGE__);
 }
 
@@ -22,24 +27,35 @@ sub PRINT {
 	my $line = join '', @_;
 	return unless length($line);
 
-	# have Embperl output directly if its the last
-	# handler in the chain
+	# buffer input if last in chain
 	if ($last_in_chain) {
-		HTML::Embperl::Execute (
-			{ input		=> \$line,
-			  req_rec	=> Apache->request
-			});
+		$buffer .= $line;
 	}
-	# otherwise pipe the output to the next handler
 	else {
+		# otherwise pipe the output to the next handler
 		my $output;
-		HTML::Embperl::Execute (
-			{ input         => \$line,
-			  output	=> \$output,
-			  req_rec	=> Apache->request
-			});
+		$param{input} = \$line;
+		$param{output} = \$output;
+		$param{mtime} = mtime();
+		HTML::Embperl::Execute(\%param);
 		$self->Apache::OutputChain::PRINT($output);
 	}
+}
+sub flush {
+	# have Embperl output directly since we're the last
+	# handler in the chain
+	if (length($buffer)) {
+		$param{input} = \$buffer;
+		$param{mtime} = mtime();
+		HTML::Embperl::Execute(\%param);
+	}
+}
+sub mtime {
+	my $mtime = undef;
+	if (my $last_modified = $r->headers_out->{'Last-Modified'}) {
+		$mtime = parsedate $last_modified;
+	}
+	$mtime;
 }
 
 1;

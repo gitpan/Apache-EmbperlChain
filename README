@@ -29,27 +29,27 @@ STATUS
     You currently cannot mix perl's own `print' statements that print to STDOUT and the `print' or
     `write_client' methods in Apache.pm. If you do that, you will very likely encounter empty
     documents and probably core dumps too. Since Apache::OutputChain uses perl's `print' statement,
-    you'll probably want to stick to that too.
+    you'll want to stick to that too.
 
 DESCRIPTION
     This module calls HTML::Embperl to process any output from another perl handler.
 
-    The module seems to work without influencing the other handlers.
+	When it is the last module in the chain, EmbperlChain will buffer its input and feed it to 
+	Embperl when all content has been printed by the producer.
 
-    EmbperlChain processes every single buffer content it receives via the output chain separately.
-    Therefore care must be taken to print valid embedded perl chunks in the content handler. It is
-    recommended that you use as few print statements as possible in conjunction with the
-    EmbperlChain. The Apache::PassFile module is an example of an efficient file reader for this
-    purpose.
+	When not the last module in the chain, EmbperlChain processes every single buffer content
+	it receives via the output chain separately. Therefore care must be taken to print valid
+	embedded perl chunks in the content handler. It is recommended that you use as few print
+	statements as possible in conjunction with EmbperlChain. The Apache::PassFile module is an
+	example of an efficient file reader for this purpose.
 
 PREREQUISITES
-    HTML::Embperl, Apache::OutputChain
+    Apache, mod_perl, HTML::Embperl, Apache::OutputChain
 
 AUTHOR
     Eric Cholet, cholet@logilune.com
 
-    Documentation shamelessly copied from Apache::GzipChain by Andreas Koenig.
+    Parts of this document shamelessly copied from Apache::GzipChain by Andreas Koenig.
 
 SEE ALSO
     Apache::GzipChain, Apache::SSIChain
-
