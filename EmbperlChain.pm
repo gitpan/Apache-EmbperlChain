@@ -7,18 +7,24 @@ use HTML::Embperl ();
 use strict;
 use vars qw($VERSION @ISA);
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 @ISA = qw(Apache::OutputChain);
 my ($r, $last_in_chain, $buffer, %param);
 
 sub handler {
 	$r = shift;
+	# if we're last in the chain, we can buffer the whole response
+	# and feed it to Embperl in one call through flush()
 	if ($last_in_chain = (ref tied *STDOUT eq 'Apache::OutputChain')) {
 		$buffer = '';
 		$r->push_handlers(PerlHandler => \&flush);
 	}
+	# populate our parameter hash
+	%param = ();
+	HTML::Embperl::ScanEnvironement (\%param);
 	$param{inputfile} = $r->filename;
 	$param{req_rec} = $r;
+	# register ourselves as an output chain
 	Apache::OutputChain::handler($r, __PACKAGE__);
 }
 
@@ -32,24 +38,27 @@ sub PRINT {
 		$buffer .= $line;
 	}
 	else {
-		# otherwise pipe the output to the next handler
+		# process the input through Embperl
 		my $output;
 		$param{input} = \$line;
 		$param{output} = \$output;
 		$param{mtime} = mtime();
 		HTML::Embperl::Execute(\%param);
+		# pipe the output to the next handler
 		$self->Apache::OutputChain::PRINT($output);
 	}
 }
+# extra handler used when last in chain
 sub flush {
-	# have Embperl output directly since we're the last
-	# handler in the chain
+	# process buffered input through Embperl
 	if (length($buffer)) {
 		$param{input} = \$buffer;
 		$param{mtime} = mtime();
+		# Embperl will display the output directly
 		HTML::Embperl::Execute(\%param);
 	}
 }
+# get last modified time to enable Embperl's caching
 sub mtime {
 	my $mtime = undef;
 	if (my $last_modified = $r->headers_out->{'Last-Modified'}) {
@@ -97,7 +106,7 @@ You currently cannot mix perl's own C<print> statements that print to
 STDOUT and the C<print> or C<write_client> methods in Apache.pm. If
 you do that, you will very likely encounter empty documents and
 probably core dumps too. Since Apache::OutputChain uses perl's C<print>
-statement, you'll probably want to stick to that too.
+statement, you'll want to stick to that too.
 
 =head1 DESCRIPTION
 
@@ -112,6 +121,15 @@ embedded perl chunks in the content handler. It is recommended that
 you use as few print statements as possible in conjunction with the
 EmbperlChain. The Apache::PassFile module is an example of an efficient
 file reader for this purpose.
+
+When EmbperlChain is the last handler in the chain, the following
+optimization is performed: all input from the producer is buffered in
+memory, and fed to HTML::Embperl in one call at the end of request. The
+resulting output is sent directly to the browser by HTML::Embperl, for
+an additional performance gain.
+
+If the 'Last-Modified' HTTP header is set (by an earlier handler in the chain),
+EmbperlChain uses it to enable Embperl's caching mechanism.
 
 =head1 PREREQUISITES
 

@@ -1,5 +1,9 @@
 Revision history for Perl extension Apache::EmbperlChain.
 
+0.04  Sep 1 1999
+- Call Embperl::ScanEnvironment at request start 
+	[Michael J Schout <mschout@mail.gkg-com.com>]
+
 0.03  Feb 2 1999
 - Set Embperl's "file" from $r->filename.
 - Set Embperl's "mtime" from Last-Modified header if available. This will enable Embperl
